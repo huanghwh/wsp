@@ -401,9 +401,9 @@ struct wsp_softc {
 	int	dz_count;
 #define	WSP_DZ_MAX_COUNT	32
 	int	dt_sum;			/* T-axis cumulative movement */
-	int rdx;			/* x axis remainder of divide by scale_factor */
-	int rdy;			/* y axis remainder of divide by scale_factor */
-	int rdz;			/* z axis remainder of divide by scale_factor */
+	int	rdx;			/* x axis remainder of divide by scale_factor */
+	int	rdy;			/* y axis remainder of divide by scale_factor */
+	int	rdz;			/* z axis remainder of divide by scale_factor */
 	int	tp_datalen;
 	uint8_t o_ntouch;		/* old touch finger status */
 	uint8_t	finger;			/* 0 or 1 *, check which finger moving */
