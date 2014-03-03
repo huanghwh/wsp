@@ -858,9 +858,8 @@ wsp_intr_callback(struct usb_xfer *xfer, usb_error_t error)
 				dx = sc->pos_x[0] - sc->pre_pos_x;
 				dy = sc->pos_y[0] - sc->pre_pos_y;
 
-				/* Ignore movement from ibt=1 to ibt=0 */
-				if (sc->sc_status.obutton != 0 && 
-				    sc->sc_status.button == 0) {
+				/* Ignore movement during button is releasing */
+				if (sc->ibtn != 0 && sc->sc_status.button == 0) {
 					dx = 0;
 					dy = 0;
 				}
