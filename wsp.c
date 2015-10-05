@@ -25,7 +25,7 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD$");
+__FBSDID("$FreeBSD: stable/10/sys/dev/usb/input/wsp.c 263208 2014-03-15 18:19:09Z hselasky $");
 
 #include <sys/param.h>
 #include <sys/systm.h>
@@ -94,8 +94,8 @@ static struct wsp_tuning {
 	.z_factor = 5,
 	.pressure_touch_threshold = 50,
 	.pressure_untouch_threshold = 10,
-	.pressure_tap_threshold = 100,
-	.scr_hor_threshold = 10,
+	.pressure_tap_threshold = 120,
+	.scr_hor_threshold = 20,
 };
 
 static void
@@ -756,18 +756,19 @@ wsp_intr_callback(struct usb_xfer *xfer, usb_error_t error)
 		if (sc->ntaps < ntouch) {
 			switch (ntouch) {
 			case 1:
-				if (f[0].touch_major > tun.pressure_tap_threshold)
+				if (f[0].touch_major > tun.pressure_tap_threshold &&
+				    f[0].tool_major <= 1200 )
 					sc->ntaps = 1;
 				break;
 			case 2:
-				if (f[0].touch_major > tun.pressure_tap_threshold &&
-				    f[1].touch_major > tun.pressure_tap_threshold)
+				if (f[0].touch_major > tun.pressure_tap_threshold-30 &&
+				    f[1].touch_major > tun.pressure_tap_threshold-30)
 					sc->ntaps = 2;
 				break;
 			case 3:
-				if (f[0].touch_major > tun.pressure_tap_threshold &&
-				    f[1].touch_major > tun.pressure_tap_threshold &&
-				    f[2].touch_major > tun.pressure_tap_threshold)
+				if (f[0].touch_major > tun.pressure_tap_threshold-40 &&
+				    f[1].touch_major > tun.pressure_tap_threshold-40 &&
+				    f[2].touch_major > tun.pressure_tap_threshold-40)
 					sc->ntaps = 3;
 				break;
 			default:
@@ -863,10 +864,22 @@ wsp_intr_callback(struct usb_xfer *xfer, usb_error_t error)
 					dx = 0;
 					dy = 0;
 				}
+
 				/* Ignore movement if ntouch changed */
 				if (sc->o_ntouch != ntouch) {
 					dx = 0;
 					dy = 0;
+				}
+
+				/* Ignore unexpeted movment when typing.*/
+				if (ntouch == 1 && f[0].tool_major > 1200 ) {
+					dx = dy = 0;
+				}
+
+				if (sc->ibtn != 0 && ntouch == 1 && 
+				    sc->intr_count < WSP_TAP_MAX_COUNT && 
+				    abs(sc->dx_sum) < 1 && abs(sc->dy_sum) < 1 ) {
+					dx = dy = 0;
 				}
 
 				if (ntouch == 2 && sc->sc_status.button != 0) {
@@ -925,7 +938,7 @@ wsp_intr_callback(struct usb_xfer *xfer, usb_error_t error)
 				if (sc->scr_mode == WSP_SCR_NONE &&
 				    abs(sc->dx_sum) + abs(sc->dy_sum) > tun.scr_hor_threshold)
 					sc->scr_mode = abs(sc->dx_sum) >
-					    abs(sc->dy_sum) * 3 ? WSP_SCR_HOR :
+					    abs(sc->dy_sum) * 2 ? WSP_SCR_HOR :
 					    WSP_SCR_VER;
 				DPRINTFN(WSP_LLEVEL_INFO, "scr_mode=%5d, count=%d, dx_sum=%d, dy_sum=%d\n",
 				    sc->scr_mode, sc->intr_count, sc->dx_sum, sc->dy_sum);
