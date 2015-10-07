@@ -820,9 +820,15 @@ wsp_intr_callback(struct usb_xfer *xfer, usb_error_t error)
 		sc->dz_count = WSP_DZ_MAX_COUNT;
 
 	usbd_xfer_status(xfer, &len, NULL, NULL, NULL);
+	DPRINTFN(WSP_LLEVEL_INFO, "XXXX1: len=%d\n", len);
 
 	switch (USB_GET_STATE(xfer)) {
 	case USB_ST_TRANSFERRED:
+		DPRINTFN(WSP_LLEVEL_INFO, "XXXX2\n");
+
+		if (len < params->tp_offset + params->tp_fsize) {
+			goto tr_setup;
+		}
 
 		/* copy out received data */
 		pc = usbd_xfer_get_frame(xfer, 0);
@@ -1110,6 +1116,7 @@ wsp_intr_callback(struct usb_xfer *xfer, usb_error_t error)
 
 	case USB_ST_SETUP:
 tr_setup:
+		DPRINTFN(WSP_LLEVEL_INFO, "XXXX3\n");
 		/* check if we can put more data into the FIFO */
 		if (usb_fifo_put_bytes_max(
 		    sc->sc_fifo.fp[USB_FIFO_RX]) != 0) {
@@ -1127,6 +1134,7 @@ tr_setup:
 		}
 		break;
 	}
+	DPRINTFN(WSP_LLEVEL_INFO, "XXXXn= END\n");
 }
 
 static void
