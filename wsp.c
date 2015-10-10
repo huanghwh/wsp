@@ -75,7 +75,7 @@ enum wsp_log_level {
 	WSP_LLEVEL_DEBUG,		/* for troubleshooting */
 	WSP_LLEVEL_INFO,		/* for diagnostics */
 };
-static int wsp_debug = 15; //WSP_LLEVEL_ERROR;/* the default is to only log errors */
+static int wsp_debug = WSP_LLEVEL_ERROR;/* the default is to only log errors */
 
 SYSCTL_INT(_hw_usb_wsp, OID_AUTO, debug, CTLFLAG_RW,
     &wsp_debug, WSP_LLEVEL_ERROR, "WSP debug level");
@@ -824,15 +824,16 @@ wsp_intr_callback(struct usb_xfer *xfer, usb_error_t error)
 
 	switch (USB_GET_STATE(xfer)) {
 	case USB_ST_TRANSFERRED:
-		DPRINTFN(WSP_LLEVEL_INFO, "XXXX2\n");
-
-		if (len < params->tp_offset + params->tp_fsize) {
-			goto tr_setup;
-		}
 
 		/* copy out received data */
 		pc = usbd_xfer_get_frame(xfer, 0);
 		usbd_copy_out(pc, 0, sc->tp_data, len);
+
+		if ((len < params->tp_offset + params->tp_fsize) ||
+		    ((len - params->tp_offset) % params->tp_fsize) != 0) {
+			DPRINTFN(WSP_LLEVEL_INFO, "XXXX2: %x, %x\n", sc->tp_data[0], sc->tp_data[1]);
+			goto tr_setup;
+		}
 
 		if (len < sc->tp_datalen) {
 			/* make sure we don't process old data */
