@@ -75,7 +75,7 @@ enum wsp_log_level {
 	WSP_LLEVEL_DEBUG,		/* for troubleshooting */
 	WSP_LLEVEL_INFO,		/* for diagnostics */
 };
-static int wsp_debug = WSP_LLEVEL_ERROR;/* the default is to only log errors */
+static int wsp_debug = 15; //WSP_LLEVEL_ERROR;/* the default is to only log errors */
 
 SYSCTL_INT(_hw_usb_wsp, OID_AUTO, debug, CTLFLAG_RW,
     &wsp_debug, WSP_LLEVEL_ERROR, "WSP debug level");
@@ -164,7 +164,7 @@ enum tp_type {
 #define	FINGER_TYPE1		(13 * 2)
 #define	FINGER_TYPE2		(15 * 2)
 #define	FINGER_TYPE3		(19 * 2)
-#define	FINGER_TYPE4		(24 * 2)
+#define	FINGER_TYPE4		(23 * 2)
 
 /* trackpad button data offsets */
 #define	BUTTON_TYPE2		15
@@ -246,6 +246,8 @@ struct wsp_dev_params {
 	uint8_t	tp_button;	/* offset to button data */
 	uint8_t	tp_offset;	/* offset to trackpad finger data */
 	uint8_t tp_fsize;	/* bytes in single finger block */
+	uint8_t tp_delta;	/* offset from header to finger struct */
+	uint8_t iface_index;
 	uint8_t um_size;	/* usb control message length */
 	uint8_t um_req_val;	/* usb control message value */
 	uint8_t um_req_idx;	/* usb control message index */
@@ -261,6 +263,8 @@ static const struct wsp_dev_params wsp_dev_params[WSP_FLAG_MAX] = {
 		.tp_button = 0,
 		.tp_offset = FINGER_TYPE1,
 		.tp_fsize = FSIZE_TYPE1,
+		.tp_delta = 0,
+		.iface_index = 0,
 		.um_size = 8,
 		.um_req_val = 0x03,
 		.um_req_idx = 0x00,
@@ -274,6 +278,8 @@ static const struct wsp_dev_params wsp_dev_params[WSP_FLAG_MAX] = {
 		.tp_button = 0,
 		.tp_offset = FINGER_TYPE1,
 		.tp_fsize = FSIZE_TYPE1,
+		.tp_delta = 0,
+		.iface_index = 0,
 		.um_size = 8,
 		.um_req_val = 0x03,
 		.um_req_idx = 0x00,
@@ -287,6 +293,8 @@ static const struct wsp_dev_params wsp_dev_params[WSP_FLAG_MAX] = {
 		.tp_button = BUTTON_TYPE2,
 		.tp_offset = FINGER_TYPE2,
 		.tp_fsize = FSIZE_TYPE2,
+		.tp_delta = 0,
+		.iface_index = 0,
 		.um_size = 8,
 		.um_req_val = 0x03,
 		.um_req_idx = 0x00,
@@ -300,6 +308,8 @@ static const struct wsp_dev_params wsp_dev_params[WSP_FLAG_MAX] = {
 		.tp_button = BUTTON_TYPE2,
 		.tp_offset = FINGER_TYPE2,
 		.tp_fsize = FSIZE_TYPE2,
+		.tp_delta = 0,
+		.iface_index = 0,
 		.um_size = 8,
 		.um_req_val = 0x03,
 		.um_req_idx = 0x00,
@@ -313,6 +323,8 @@ static const struct wsp_dev_params wsp_dev_params[WSP_FLAG_MAX] = {
 		.tp_button = BUTTON_TYPE2,
 		.tp_offset = FINGER_TYPE2,
 		.tp_fsize = FSIZE_TYPE2,
+		.tp_delta = 0,
+		.iface_index = 0,
 		.um_size = 8,
 		.um_req_val = 0x03,
 		.um_req_idx = 0x00,
@@ -326,6 +338,8 @@ static const struct wsp_dev_params wsp_dev_params[WSP_FLAG_MAX] = {
 		.tp_button = BUTTON_TYPE2,
 		.tp_offset = FINGER_TYPE2,
 		.tp_fsize = FSIZE_TYPE2,
+		.tp_delta = 0,
+		.iface_index = 0,
 		.um_size = 8,
 		.um_req_val = 0x03,
 		.um_req_idx = 0x00,
@@ -339,6 +353,8 @@ static const struct wsp_dev_params wsp_dev_params[WSP_FLAG_MAX] = {
 		.tp_button = BUTTON_TYPE2,
 		.tp_offset = FINGER_TYPE2,
 		.tp_fsize = FSIZE_TYPE2,
+		.tp_delta = 0,
+		.iface_index = 0,
 		.um_size = 8,
 		.um_req_val = 0x03,
 		.um_req_idx = 0x00,
@@ -352,6 +368,8 @@ static const struct wsp_dev_params wsp_dev_params[WSP_FLAG_MAX] = {
 		.tp_button = BUTTON_TYPE2,
 		.tp_offset = FINGER_TYPE2,
 		.tp_fsize = FSIZE_TYPE2,
+		.tp_delta = 0,
+		.iface_index = 0,
 		.um_size = 8,
 		.um_req_val = 0x03,
 		.um_req_idx = 0x00,
@@ -365,6 +383,7 @@ static const struct wsp_dev_params wsp_dev_params[WSP_FLAG_MAX] = {
 		.tp_button = BUTTON_TYPE2,
 		.tp_offset = FINGER_TYPE2,
 		.tp_fsize = FSIZE_TYPE2,
+		.tp_delta = 0,
 		.um_size = 8,
 		.um_req_val = 0x03,
 		.um_req_idx = 0x00,
@@ -378,6 +397,8 @@ static const struct wsp_dev_params wsp_dev_params[WSP_FLAG_MAX] = {
 		.tp_button = BUTTON_TYPE2,
 		.tp_offset = FINGER_TYPE2,
 		.tp_fsize = FSIZE_TYPE2,
+		.tp_delta = 0,
+		.iface_index = 0,
 		.um_size = 8,
 		.um_req_val = 0x03,
 		.um_req_idx = 0x00,
@@ -391,6 +412,8 @@ static const struct wsp_dev_params wsp_dev_params[WSP_FLAG_MAX] = {
 		.tp_button = BUTTON_TYPE2,
 		.tp_offset = FINGER_TYPE2,
 		.tp_fsize = FSIZE_TYPE2,
+		.tp_delta = 0,
+		.iface_index = 0,
 		.um_size = 8,
 		.um_req_val = 0x03,
 		.um_req_idx = 0x00,
@@ -404,6 +427,8 @@ static const struct wsp_dev_params wsp_dev_params[WSP_FLAG_MAX] = {
 		.tp_button = BUTTON_TYPE3,
 		.tp_offset = FINGER_TYPE3,
 		.tp_fsize = FSIZE_TYPE3,
+		.tp_delta = 0,
+		.iface_index = 0,
 		.um_size = 8,
 		.um_req_val = 0x03,
 		.um_req_idx = 0x00,
@@ -417,6 +442,8 @@ static const struct wsp_dev_params wsp_dev_params[WSP_FLAG_MAX] = {
 		.tp_button = BUTTON_TYPE4,
 		.tp_offset = FINGER_TYPE4,
 		.tp_fsize = FSIZE_TYPE4,
+		.tp_delta = 2,
+		.iface_index = 2,
 		.um_size = 2,
 		.um_req_val = 0x03,
 		.um_req_idx = 0x02,
@@ -614,7 +641,7 @@ wsp_set_device_mode(struct wsp_softc *sc, boolean_t on)
 		return 0;
 
 	err = usbd_req_get_report(sc->sc_usb_device, NULL,
-	    mode_bytes, params->um_size, 0,
+	    mode_bytes, params->um_size, params->iface_index,
 	    params->um_req_val, params->um_req_idx);
 
 	if (err != USB_ERR_NORMAL_COMPLETION) {
@@ -634,7 +661,7 @@ wsp_set_device_mode(struct wsp_softc *sc, boolean_t on)
 	    on ? params->um_switch_on : params->um_switch_off;
 
 	return (usbd_req_set_report(sc->sc_usb_device, NULL,
-	    mode_bytes, params->um_size, 0, 
+	    mode_bytes, params->um_size, params->iface_index, 
 	    params->um_req_val, params->um_req_idx));
 }
 
@@ -664,11 +691,13 @@ wsp_probe(device_t self)
 	if (uaa->usb_mode != USB_MODE_HOST)
 		return (ENXIO);
 
-	if (uaa->info.bIfaceIndex != WSP_IFACE_INDEX)
+	if (uaa->info.bIfaceIndex != WSP_IFACE_INDEX &&
+	    uaa->info.bIfaceIndex != 2)
 		return (ENXIO);
 
 	if ((uaa->info.bInterfaceClass != UICLASS_HID) ||
-	    (uaa->info.bInterfaceProtocol != 0))
+	    (uaa->info.bInterfaceProtocol != 0 &&
+	     uaa->info.bInterfaceProtocol != UIPROTO_MOUSE))
 		return (ENXIO);
 
 	return (usbd_lookup_id_by_uaa(wsp_devs, sizeof(wsp_devs), uaa));
@@ -853,7 +882,7 @@ wsp_intr_callback(struct usb_xfer *xfer, usb_error_t error)
 			ntouch = MAX_FINGERS;
 
 		for (i = 0; i != ntouch; i++) {
-			f = (struct tp_finger *)(sc->tp_data + params->tp_offset + i * params->tp_fsize);
+			f = (struct tp_finger *)(sc->tp_data + params->tp_offset + params->tp_delta + i * params->tp_fsize);
 			/* swap endianness, if any */
 			if (le16toh(0x1234) != 0x1234) {
 				f->origin = le16toh((uint16_t)f->origin);
@@ -866,15 +895,16 @@ wsp_intr_callback(struct usb_xfer *xfer, usb_error_t error)
 				f->orientation = le16toh((uint16_t)f->orientation);
 				f->touch_major = le16toh((uint16_t)f->touch_major);
 				f->touch_minor = le16toh((uint16_t)f->touch_minor);
+				f->pressure = le16toh((uint16_t)f->pressure);
 				f->multi = le16toh((uint16_t)f->multi);
 			}
-			DPRINTFN(WSP_LLEVEL_INFO, "[%d]ibt=%d, taps=%d, u=%x, o=%4d, ax=%5d, ay=%5d, "
-			    "rx=%5d, ry=%5d, tlmaj=%4d, tlmin=%4d, ot=%4x, tchmaj=%4d, tchmin=%4d, m=%4x\n",
-			    i, ibt, ntouch, h->q2,
-			    f->origin, f->abs_x, f->abs_y, f->rel_x, f->rel_y,
-			    f->tool_major, f->tool_minor, f->orientation,
-			    f->touch_major, f->touch_minor, f->multi);
-
+			DPRINTFN(WSP_LLEVEL_INFO, 
+			    "[%d]ibt=%d, taps=%d, o=%4d, ax=%5d, ay=%5d, "
+			    "rx=%5d, ry=%5d, tlmaj=%4d, tlmin=%4d, ot=%4x, "
+			    "tchmaj=%4d, tchmin=%4d, presure=%4d, m=%4x\n",
+			    i, ibt, ntouch, f->origin, f->abs_x, f->abs_y,
+			    f->rel_x, f->rel_y, f->tool_major, f->tool_minor, f->orientation,
+			    f->touch_major, f->touch_minor, f->pressure, f->multi);
 			sc->pos_x[i] = f->abs_x;
 			sc->pos_y[i] = -f->abs_y;
 			sc->index[i] = f;
@@ -889,8 +919,7 @@ wsp_intr_callback(struct usb_xfer *xfer, usb_error_t error)
 			sc->sc_status.button |= MOUSE_BUTTON1DOWN;
 			sc->ibtn = 1;
 		}
-		if (h->q2 == 4)
-			sc->intr_count++;
+		sc->intr_count++;
 
 		if (sc->ntaps < ntouch) {
 			switch (ntouch) {
@@ -993,7 +1022,6 @@ wsp_intr_callback(struct usb_xfer *xfer, usb_error_t error)
 				sc->sc_touch = WSP_TOUCHING;
 
 			if (ntouch != 0 &&
-			    h->q2 == 4 &&
 			    sc->index[0]->touch_major >= tun.pressure_touch_threshold) {
 				dx = sc->pos_x[0] - sc->pre_pos_x;
 				dy = sc->pos_y[0] - sc->pre_pos_y;
