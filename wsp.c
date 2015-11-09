@@ -197,20 +197,20 @@ struct tp_header {
 
 /* trackpad finger structure - little endian */
 struct tp_finger {
-	int16_t	origin;		/* zero when switching track finger */
-	int16_t	abs_x;		/* absolute x coodinate */
-	int16_t	abs_y;		/* absolute y coodinate */
-	int16_t	rel_x;		/* relative x coodinate */
-	int16_t	rel_y;		/* relative y coodinate */
-	int16_t	tool_major;	/* tool area, major axis */
-	int16_t	tool_minor;	/* tool area, minor axis */
-	int16_t	orientation;	/* 16384 when point, else 15 bit angle */
-	int16_t	touch_major;	/* touch area, major axis */
-	int16_t	touch_minor;	/* touch area, minor axis */
-	int16_t	unused[2];	/* zeros */
-	int16_t pressure;	/* pressure on forcetouch touchpad */
-	int16_t	multi;		/* one finger: varies, more fingers:
-				 * constant */
+	int16_t	origin;			/* zero when switching track finger */
+	int16_t	abs_x;			/* absolute x coodinate */
+	int16_t	abs_y;			/* absolute y coodinate */
+	int16_t	rel_x;			/* relative x coodinate */
+	int16_t	rel_y;			/* relative y coodinate */
+	int16_t	tool_major;		/* tool area, major axis */
+	int16_t	tool_minor;		/* tool area, minor axis */
+	int16_t	orientation;		/* 16384 when point, else 15 bit angle */
+	int16_t	touch_major;		/* touch area, major axis */
+	int16_t	touch_minor;		/* touch area, minor axis */
+	int16_t	unused[2];		/* zeros */
+	int16_t pressure;		/* pressure on forcetouch touchpad */
+	int16_t	multi;			/* one finger: varies, more fingers:
+				 	 * constant */
 } __packed;
 
 /* trackpad finger data size, empirically at least ten fingers */
@@ -241,19 +241,19 @@ enum {
 
 /* device-specific configuration */
 struct wsp_dev_params {
-	uint8_t	caps;		/* device capability bitmask */
-	uint8_t	tp_type;	/* type of trackpad interface */
-	uint8_t	tp_button;	/* offset to button data */
-	uint8_t	tp_offset;	/* offset to trackpad finger data */
-	uint8_t tp_fsize;	/* bytes in single finger block */
-	uint8_t tp_delta;	/* offset from header to finger struct */
+	uint8_t	caps;			/* device capability bitmask */
+	uint8_t	tp_type;		/* type of trackpad interface */
+	uint8_t	tp_button;		/* offset to button data */
+	uint8_t	tp_offset;		/* offset to trackpad finger data */
+	uint8_t tp_fsize;		/* bytes in single finger block */
+	uint8_t tp_delta;		/* offset from header to finger struct */
 	uint8_t iface_index;
-	uint8_t um_size;	/* usb control message length */
-	uint8_t um_req_val;	/* usb control message value */
-	uint8_t um_req_idx;	/* usb control message index */
-	uint8_t um_switch_idx;	/* usb control message mode switch index */
-	uint8_t um_switch_on;	/* usb control message mode switch on */
-	uint8_t um_switch_off;	/* usb control message mode switch off */
+	uint8_t um_size;		/* usb control message length */
+	uint8_t um_req_val;		/* usb control message value */
+	uint8_t um_req_idx;		/* usb control message index */
+	uint8_t um_switch_idx;		/* usb control message mode switch index */
+	uint8_t um_switch_on;		/* usb control message mode switch on */
+	uint8_t um_switch_off;		/* usb control message mode switch off */
 };
 
 static const struct wsp_dev_params wsp_dev_params[WSP_FLAG_MAX] = {
@@ -502,7 +502,7 @@ static const STRUCT_USB_HOST_ID wsp_devs[] = {
 	WSP_DEV(APPLE, WELLSPRING5A_JIS, WSP_FLAG_WELLSPRING5A),
 
 	/* MacbookPro10,1 (unibody, June 2012) */
-	/* MacbookPro11,? (unibody, June 2013) */
+	/* MacbookPro11,1-3 (unibody, June 2013) */
 	WSP_DEV(APPLE, WELLSPRING7_ANSI, WSP_FLAG_WELLSPRING7),
 	WSP_DEV(APPLE, WELLSPRING7_ISO, WSP_FLAG_WELLSPRING7),
 	WSP_DEV(APPLE, WELLSPRING7_JIS, WSP_FLAG_WELLSPRING7),
@@ -517,7 +517,7 @@ static const STRUCT_USB_HOST_ID wsp_devs[] = {
 	WSP_DEV(APPLE, WELLSPRING8_ISO, WSP_FLAG_WELLSPRING8),
 	WSP_DEV(APPLE, WELLSPRING8_JIS, WSP_FLAG_WELLSPRING8),
 
-	/* MacbookPro12,1 */
+	/* MacbookPro12,1 MacbookPro11,4 */
 	WSP_DEV(APPLE, WELLSPRING9_ANSI, WSP_FLAG_WELLSPRING9),
 	WSP_DEV(APPLE, WELLSPRING9_ISO, WSP_FLAG_WELLSPRING9),
 	WSP_DEV(APPLE, WELLSPRING9_JIS, WSP_FLAG_WELLSPRING9),
@@ -849,7 +849,6 @@ wsp_intr_callback(struct usb_xfer *xfer, usb_error_t error)
 		sc->dz_count = WSP_DZ_MAX_COUNT;
 
 	usbd_xfer_status(xfer, &len, NULL, NULL, NULL);
-	DPRINTFN(WSP_LLEVEL_INFO, "XXXX1: len=%d\n", len);
 
 	switch (USB_GET_STATE(xfer)) {
 	case USB_ST_TRANSFERRED:
@@ -860,7 +859,8 @@ wsp_intr_callback(struct usb_xfer *xfer, usb_error_t error)
 
 		if ((len < params->tp_offset + params->tp_fsize) ||
 		    ((len - params->tp_offset) % params->tp_fsize) != 0) {
-			DPRINTFN(WSP_LLEVEL_INFO, "XXXX2: %x, %x\n", sc->tp_data[0], sc->tp_data[1]);
+			DPRINTFN(WSP_LLEVEL_INFO, "Invalid length: %d, %x, %x\n",
+			    len, sc->tp_data[0], sc->tp_data[1]);
 			goto tr_setup;
 		}
 
@@ -1145,7 +1145,6 @@ wsp_intr_callback(struct usb_xfer *xfer, usb_error_t error)
 
 	case USB_ST_SETUP:
 tr_setup:
-		DPRINTFN(WSP_LLEVEL_INFO, "XXXX3\n");
 		/* check if we can put more data into the FIFO */
 		if (usb_fifo_put_bytes_max(
 		    sc->sc_fifo.fp[USB_FIFO_RX]) != 0) {
@@ -1163,7 +1162,6 @@ tr_setup:
 		}
 		break;
 	}
-	DPRINTFN(WSP_LLEVEL_INFO, "XXXXn= END\n");
 }
 
 static void
