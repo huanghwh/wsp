@@ -25,7 +25,7 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: stable/10/sys/dev/usb/input/wsp.c 263208 2014-03-15 18:19:09Z hselasky $");
+__FBSDID("$FreeBSD: head/sys/dev/usb/input/wsp.c 290639 2015-11-10 09:27:52Z hselasky $");
 
 #include <sys/param.h>
 #include <sys/systm.h>
@@ -49,7 +49,6 @@ __FBSDID("$FreeBSD: stable/10/sys/dev/usb/input/wsp.c 263208 2014-03-15 18:19:09
 
 #include "usbdevs.h"
 
-#define	USB_DEBUG wsp_debug
 #define	USB_DEBUG_VAR wsp_debug
 #include <dev/usb/usb_debug.h>
 
@@ -75,9 +74,9 @@ enum wsp_log_level {
 	WSP_LLEVEL_DEBUG,		/* for troubleshooting */
 	WSP_LLEVEL_INFO,		/* for diagnostics */
 };
-static int wsp_debug = 15; //WSP_LLEVEL_ERROR;/* the default is to only log errors */
+static int wsp_debug = WSP_LLEVEL_ERROR;/* the default is to only log errors */
 
-SYSCTL_INT(_hw_usb_wsp, OID_AUTO, debug, CTLFLAG_RW,
+SYSCTL_INT(_hw_usb_wsp, OID_AUTO, debug, CTLFLAG_RWTUN,
     &wsp_debug, WSP_LLEVEL_ERROR, "WSP debug level");
 #endif					/* USB_DEBUG */
 
@@ -110,20 +109,18 @@ wsp_runing_rangecheck(struct wsp_tuning *ptun)
 	WSP_CLAMP(ptun->scr_hor_threshold, 1, 255);
 }
 
-SYSCTL_INT(_hw_usb_wsp, OID_AUTO, scale_factor, CTLFLAG_RW,
+SYSCTL_INT(_hw_usb_wsp, OID_AUTO, scale_factor, CTLFLAG_RWTUN,
     &wsp_tuning.scale_factor, 0, "movement scale factor");
-SYSCTL_INT(_hw_usb_wsp, OID_AUTO, z_factor, CTLFLAG_RW,
+SYSCTL_INT(_hw_usb_wsp, OID_AUTO, z_factor, CTLFLAG_RWTUN,
     &wsp_tuning.z_factor, 0, "Z-axis scale factor");
-SYSCTL_INT(_hw_usb_wsp, OID_AUTO, pressure_touch_threshold, CTLFLAG_RW,
+SYSCTL_INT(_hw_usb_wsp, OID_AUTO, pressure_touch_threshold, CTLFLAG_RWTUN,
     &wsp_tuning.pressure_touch_threshold, 0, "touch pressure threshold");
-SYSCTL_INT(_hw_usb_wsp, OID_AUTO, pressure_untouch_threshold, CTLFLAG_RW,
+SYSCTL_INT(_hw_usb_wsp, OID_AUTO, pressure_untouch_threshold, CTLFLAG_RWTUN,
     &wsp_tuning.pressure_untouch_threshold, 0, "untouch pressure threshold");
-SYSCTL_INT(_hw_usb_wsp, OID_AUTO, pressure_tap_threshold, CTLFLAG_RW,
+SYSCTL_INT(_hw_usb_wsp, OID_AUTO, pressure_tap_threshold, CTLFLAG_RWTUN,
     &wsp_tuning.pressure_tap_threshold, 0, "tap pressure threshold");
-SYSCTL_INT(_hw_usb_wsp, OID_AUTO, scr_hor_threshold, CTLFLAG_RW,
+SYSCTL_INT(_hw_usb_wsp, OID_AUTO, scr_hor_threshold, CTLFLAG_RWTUN,
     &wsp_tuning.scr_hor_threshold, 0, "horizontal scrolling threshold");
-
-#define	WSP_IFACE_INDEX	1
 
 /*
  * Some tables, structures, definitions and constant values for the
@@ -629,12 +626,11 @@ static const struct usb_config wsp_config[WSP_N_TRANSFER] = {
 };
 
 static usb_error_t
-wsp_set_device_mode(struct wsp_softc *sc, boolean_t on)
+wsp_set_device_mode(struct wsp_softc *sc, uint8_t on)
 {
+	const struct wsp_dev_params *params = sc->sc_params;
 	uint8_t	mode_bytes[8];
 	usb_error_t err;
-
-	const struct wsp_dev_params *params = sc->sc_params;
 
 	/* Type 3 does not require a mode switch */
 	if (params->tp_type == TYPE3)
@@ -687,19 +683,29 @@ static int
 wsp_probe(device_t self)
 {
 	struct usb_attach_arg *uaa = device_get_ivars(self);
+	struct usb_interface_descriptor *id;
+	struct usb_interface *iface;
+	uint8_t i;
 
 	if (uaa->usb_mode != USB_MODE_HOST)
 		return (ENXIO);
 
-	if (uaa->info.bIfaceIndex != WSP_IFACE_INDEX &&
-	    uaa->info.bIfaceIndex != 2)
+	/* figure out first interface matching */
+	for (i = 1;; i++) {
+		iface = usbd_get_iface(uaa->device, i);
+		if (iface == NULL || i == 3)
+			return (ENXIO);
+		id = iface->idesc;
+		if ((id == NULL) ||
+		    (id->bInterfaceClass != UICLASS_HID) ||
+		    (id->bInterfaceProtocol != 0 &&
+		    id->bInterfaceProtocol != UIPROTO_MOUSE))
+			continue;
+		break;
+	}
+	/* check if we are attaching to the first match */
+	if (uaa->info.bIfaceIndex != i)
 		return (ENXIO);
-
-	if ((uaa->info.bInterfaceClass != UICLASS_HID) ||
-	    (uaa->info.bInterfaceProtocol != 0 &&
-	     uaa->info.bInterfaceProtocol != UIPROTO_MOUSE))
-		return (ENXIO);
-
 	return (usbd_lookup_id_by_uaa(wsp_devs, sizeof(wsp_devs), uaa));
 }
 
@@ -752,13 +758,13 @@ wsp_attach(device_t dev)
 	 * device back into HID mode before switching it to RAW
 	 * mode. Else the device does not work like expected.
 	 */
-	err = wsp_set_device_mode(sc, false);
+	err = wsp_set_device_mode(sc, 0);
 	if (err != USB_ERR_NORMAL_COMPLETION) {
 		DPRINTF("Failed to set mode to HID MODE (%d)\n", err);
 		return (ENXIO);
 	}
 
-	err = wsp_set_device_mode(sc, true);
+	err = wsp_set_device_mode(sc, 1);
 	if (err != USB_ERR_NORMAL_COMPLETION) {
 		DPRINTF("failed to set mode to RAW MODE (%d)\n", err);
 		return (ENXIO);
@@ -807,7 +813,7 @@ wsp_detach(device_t dev)
 {
 	struct wsp_softc *sc = device_get_softc(dev);
 
-	(void) wsp_set_device_mode(sc, false);
+	(void) wsp_set_device_mode(sc, 0);
 
 	mtx_lock(&sc->sc_mutex);
 	if (sc->sc_state & WSP_ENABLED)
@@ -1034,7 +1040,7 @@ wsp_intr_callback(struct usb_xfer *xfer, usb_error_t error)
 				if (sc->o_ntouch != ntouch)
 					dx = dy = 0;
 
-				/* Ignore unexpeted movment when typing.*/
+				/* Ignore unexpeted movment when typing */
 				if (ntouch == 1 && sc->index[0]->tool_major > 1200)
 					dx = dy = 0;
 
